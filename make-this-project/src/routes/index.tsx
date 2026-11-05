@@ -1,10 +1,9 @@
 ﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { AlertTriangle, Clock, Info, Loader2, MapPinned, Plus, Search, Waves } from "lucide-react";
+import { AlertTriangle, Clock, Loader2, MapPinned, Plus, Search, Waves } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { MapView } from "@/components/map/MapView";
 import { SeverityBadge, SeverityDot, StatusBadge } from "@/components/occurrence/badges";
-import { WeatherCard } from "@/components/WeatherCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
@@ -107,11 +106,6 @@ function Dashboard() {
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
-      <div role="note" className="mb-4 flex gap-3 rounded-xl border border-primary/20 bg-sky p-3 text-sm text-navy">
-        <Info className="h-5 w-5 shrink-0 text-primary" />
-        <p>Dados colaborativos que precisam de confirmação da comunidade. Os registros marcados <strong>[DEMO]</strong> são fictícios, apenas para demonstração.</p>
-      </div>
-
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat icon={MapPinned} label="Ocorrências registradas" value={stats.total} loading={!data} />
         <Stat icon={Waves} label="Ocorrências ativas" value={stats.ativas} loading={!data} tone="text-primary" />
@@ -170,7 +164,6 @@ function Dashboard() {
         </div>
 
         <aside className="flex flex-col gap-4">
-          <WeatherCard />
           <div className="rounded-2xl border bg-card shadow-card">
             <h2 className="border-b p-4 text-base font-bold text-navy">Relatos recentes</h2>
             <ul className="max-h-[52vh] divide-y overflow-y-auto">

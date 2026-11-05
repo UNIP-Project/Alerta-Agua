@@ -128,7 +128,7 @@ function Registrar() {
   }
 
   return (
-    <PageShell title="Registrar alagamento" subtitle="Modo demonstração: o relato fica salvo apenas neste navegador até o backend ser conectado." className="max-w-5xl">
+    <PageShell title="Registrar alagamento" className="max-w-5xl">
       <form onSubmit={submit} noValidate className="grid gap-4 lg:grid-cols-2">
         <Panel className="space-y-4">
           <Field label="Título da ocorrência *" error={errors.titulo}>

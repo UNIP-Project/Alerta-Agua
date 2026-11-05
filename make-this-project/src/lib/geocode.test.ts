@@ -6,18 +6,29 @@ afterEach(() => {
 });
 
 describe("normalizeGeocodeResult", () => {
-  it("maps Nominatim results to a consistent address model", () => {
+  it("maps Nominatim results to a consistent address model with CEP and neighborhood details", () => {
     const raw = {
       display_name: "Avenida Paulista, 1000, Bela Vista, São Paulo, SP, Brasil",
       lat: "-23.5627",
       lon: "-46.6547",
+      address: {
+        road: "Avenida Paulista",
+        house_number: "1000",
+        suburb: "Bela Vista",
+        city: "São Paulo",
+        state: "São Paulo",
+        state_code: "SP",
+        postcode: "01310-100",
+        country: "Brasil",
+      },
     };
 
     expect(normalizeGeocodeResult(raw)).toEqual({
-      label: "Avenida Paulista, 1000, Bela Vista, São Paulo, SP, Brasil",
-      address: "Avenida Paulista, 1000, Bela Vista, São Paulo, SP, Brasil",
+      label: "Avenida Paulista, 1000 - Bela Vista, São Paulo - SP, CEP 01310-100, Brasil",
+      address: "Avenida Paulista, 1000 - Bela Vista, São Paulo - SP, CEP 01310-100, Brasil",
       latitude: -23.5627,
       longitude: -46.6547,
+      postalCode: "01310-100",
     });
   });
 });

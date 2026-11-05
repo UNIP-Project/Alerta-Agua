@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as MeusRelatosRouteImport } from './routes/meus-relatos'
 import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
+import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as RegistrarRouteImport } from './routes/registrar'
 import { Route as SegurancaRouteImport } from './routes/seguranca'
 import { Route as SobreRouteImport } from './routes/sobre'
@@ -50,6 +51,11 @@ const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
   path: '/recuperar-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegistrarRoute = RegistrarRouteImport.update({
   id: '/registrar',
   path: '/registrar',
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/meus-relatos': typeof MeusRelatosRoute
   '/perfil': typeof PerfilRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/registrar': typeof RegistrarRoute
   '/seguranca': typeof SegurancaRoute
   '/sobre': typeof SobreRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/meus-relatos': typeof MeusRelatosRoute
   '/perfil': typeof PerfilRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/registrar': typeof RegistrarRoute
   '/seguranca': typeof SegurancaRoute
   '/sobre': typeof SobreRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/meus-relatos': typeof MeusRelatosRoute
   '/perfil': typeof PerfilRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/registrar': typeof RegistrarRoute
   '/seguranca': typeof SegurancaRoute
   '/sobre': typeof SobreRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/meus-relatos'
     | '/perfil'
     | '/recuperar-senha'
+    | '/redefinir-senha'
     | '/registrar'
     | '/seguranca'
     | '/sobre'
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/meus-relatos'
     | '/perfil'
     | '/recuperar-senha'
+    | '/redefinir-senha'
     | '/registrar'
     | '/seguranca'
     | '/sobre'
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '/meus-relatos'
     | '/perfil'
     | '/recuperar-senha'
+    | '/redefinir-senha'
     | '/registrar'
     | '/seguranca'
     | '/sobre'
@@ -154,6 +166,7 @@ export interface RootRouteChildren {
   MeusRelatosRoute: typeof MeusRelatosRoute
   PerfilRoute: typeof PerfilRoute
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
+  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   RegistrarRoute: typeof RegistrarRoute
   SegurancaRoute: typeof SegurancaRoute
   SobreRoute: typeof SobreRoute
@@ -204,6 +217,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecuperarSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/redefinir-senha': {
+      id: '/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof RedefinirSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/registrar': {
       id: '/registrar'
       path: '/registrar'
@@ -242,6 +262,7 @@ const rootRouteChildren: RootRouteChildren = {
   MeusRelatosRoute: MeusRelatosRoute,
   PerfilRoute: PerfilRoute,
   RecuperarSenhaRoute: RecuperarSenhaRoute,
+  RedefinirSenhaRoute: RedefinirSenhaRoute,
   RegistrarRoute: RegistrarRoute,
   SegurancaRoute: SegurancaRoute,
   SobreRoute: SobreRoute,

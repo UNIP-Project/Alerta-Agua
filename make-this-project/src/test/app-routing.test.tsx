@@ -14,4 +14,11 @@ describe("App routing", () => {
 
     expect(matches.at(-1)?.routeId).not.toBe(rootRouteId);
   });
+
+  it("matches the password recovery routes instead of falling back to not found", () => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+
+    expect(router.matchRoutes("/recuperar-senha").at(-1)?.routeId).not.toBe(rootRouteId);
+    expect(router.matchRoutes("/redefinir-senha").at(-1)?.routeId).not.toBe(rootRouteId);
+  });
 });
