@@ -5,6 +5,7 @@ import { PageShell, Panel } from "@/components/layout/PageShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getRedirectUrl, normalizeSupabaseAuthError, validateSignupInput } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/cadastro")({
@@ -28,14 +29,13 @@ function Page() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !password.trim()) {
-      toast.error("Preencha nome, e-mail e senha.");
+
+    const validation = validateSignupInput(name, email, password);
+    if (validation) {
+      toast.error(validation);
       return;
     }
-    if (password.length < 6) {
-      toast.error("A senha deve ter pelo menos 6 caracteres.");
-      return;
-    }
+
     if (!supabase) {
       toast.error("Configure as variáveis do Supabase antes de criar a conta.");
       return;
@@ -43,11 +43,13 @@ function Page() {
 
     setBusy(true);
     try {
+      const redirectTo = getRedirectUrl("/login");
       const { error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: {
           data: { full_name: name.trim() },
+          emailRedirectTo: redirectTo,
         },
       });
 
@@ -55,7 +57,7 @@ function Page() {
       toast.success("Conta criada com sucesso! Verifique seu e-mail e depois faça login.");
       navigate({ to: "/login" });
     } catch (error) {
-      toast.error((error as Error).message || "Não foi possível criar a conta.");
+      toast.error(normalizeSupabaseAuthError(error));
     } finally {
       setBusy(false);
     }

@@ -20,10 +20,10 @@ describe("computeStatus", () => {
     expect(computeStatus({ createdAt: ago(2) }, [n, n], now)).toBe("normalizada");
   });
 
-  it("keeps the report active when the community still confirms that it exists", () => {
+  it("keeps the report normalizada as soon as the community confirms it was resolved, even with active confirmations", () => {
     const active = { kind: "ativa" as const, createdAt: ago(0.5) };
     const normal = { kind: "normalizada" as const, createdAt: ago(1) };
-    expect(computeStatus({ createdAt: ago(2) }, [active, normal], now)).toBe("ativa");
-    expect(computeStatus({ createdAt: ago(2) }, [active, active, normal], now)).toBe("ativa");
+    expect(computeStatus({ createdAt: ago(2) }, [active, normal], now)).toBe("normalizada");
+    expect(computeStatus({ createdAt: ago(2) }, [active, active, normal], now)).toBe("normalizada");
   });
 });

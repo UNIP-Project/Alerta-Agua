@@ -21,7 +21,10 @@ export function computeStatus(
 ): OccurrenceStatus {
   const active = confirmations.filter((c) => c.kind === "ativa").length;
   const normal = confirmations.filter((c) => c.kind === "normalizada").length;
-  if (normal >= cfg.normalizeThreshold && normal > active) return "normalizada";
+
+  // A single normalization confirmation should keep the marker green, matching the
+  // user's response and avoiding the map oscillating back to the alarm state.
+  if (normal >= cfg.normalizeThreshold) return "normalizada";
 
   const lastActivity = Math.max(
     new Date(occ.createdAt).getTime(),

@@ -1,40 +1,79 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchAddressSuggestions, normalizeGeocodeResult } from "./geocode";
+import { normalizeSupabaseAuthError, validateSignupInput } from "./auth";
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
 describe("normalizeGeocodeResult", () => {
-  it("maps Nominatim results to a consistent address model with CEP and neighborhood details", () => {
+  it("maps BrasilAPI CEP data to a consistent address model", () => {
     const raw = {
-      display_name: "Avenida Paulista, 1000, Bela Vista, São Paulo, SP, Brasil",
-      lat: "-23.5627",
-      lon: "-46.6547",
-      address: {
-        road: "Avenida Paulista",
-        house_number: "1000",
-        suburb: "Bela Vista",
-        city: "São Paulo",
-        state: "São Paulo",
-        state_code: "SP",
-        postcode: "01310-100",
-        country: "Brasil",
-      },
+      cep: "01310100",
+      street: "Avenida Paulista",
+      neighborhood: "Bela Vista",
+      city: "São Paulo",
+      state: "SP",
     };
 
     expect(normalizeGeocodeResult(raw)).toEqual({
-      label: "Avenida Paulista, 1000 - Bela Vista, São Paulo - SP, CEP 01310-100, Brasil",
-      address: "Avenida Paulista, 1000 - Bela Vista, São Paulo - SP, CEP 01310-100, Brasil",
-      latitude: -23.5627,
-      longitude: -46.6547,
+      label: "Avenida Paulista - Bela Vista, São Paulo - SP, CEP 01310-100, Brasil",
+      address: "Avenida Paulista - Bela Vista, São Paulo - SP, CEP 01310-100, Brasil",
+      latitude: 0,
+      longitude: 0,
       postalCode: "01310-100",
     });
   });
 });
 
+describe("signup validation", () => {
+  it("returns user friendly validation for invalid signup payloads", () => {
+    expect(validateSignupInput("", "joao@email.com", "123456")).toBe("Informe seu nome.");
+    expect(validateSignupInput("João", "email-invalido", "123456")).toBe("Informe um e-mail válido.");
+    expect(validateSignupInput("João", "joao@email.com", "123")).toBe("A senha deve ter pelo menos 6 caracteres.");
+  });
+
+  it("maps Supabase auth errors to clear messages for users", () => {
+    expect(normalizeSupabaseAuthError({ message: "User already registered" })).toBe("Este e-mail já está cadastrado. Tente fazer login.");
+    expect(normalizeSupabaseAuthError({ message: "Password should be at least 6 characters" })).toBe("A senha deve ter pelo menos 6 caracteres.");
+    expect(normalizeSupabaseAuthError({ message: "Invalid email" })).toBe("Informe um e-mail válido.");
+  });
+});
+
 describe("fetchAddressSuggestions", () => {
-  it("returns formatted suggestions from the geocoding service", async () => {
+  it("returns CEP-based suggestions from the BrasilAPI", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        cep: "01310100",
+        street: "Avenida Paulista",
+        neighborhood: "Bela Vista",
+        city: "São Paulo",
+        state: "SP",
+      }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const results = await fetchAddressSuggestions("01310-100");
+
+    expect(results[0]).toMatchObject({
+      label: "Avenida Paulista - Bela Vista, São Paulo - SP, CEP 01310-100, Brasil",
+      address: "Avenida Paulista - Bela Vista, São Paulo - SP, CEP 01310-100, Brasil",
+      latitude: 0,
+      longitude: 0,
+      postalCode: "01310-100",
+    });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://brasilapi.com.br/api/cep/v2/01310100",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Accept: "application/json",
+        }),
+      }),
+    );
+  });
+
+  it("returns street-name suggestions from Nominatim when no CEP is provided", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => [

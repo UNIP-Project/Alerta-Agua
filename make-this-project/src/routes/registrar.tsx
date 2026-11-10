@@ -36,7 +36,7 @@ function nowLocal() {
 
 function Registrar() {
   const navigate = useNavigate();
-  const [f, setF] = useState({ titulo: "", tipo: "alagamento" as OccurrenceType, gravidade: "moderado" as Severity, descricao: "", endereco: "", dataHora: nowLocal() });
+  const [f, setF] = useState({ titulo: "", tipo: "alagamento" as OccurrenceType, gravidade: "moderado" as Severity, descricao: "", cidade: "", endereco: "", dataHora: nowLocal() });
   const [pos, setPos] = useState<[number, number] | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -48,7 +48,7 @@ function Registrar() {
   const set = (k: keyof typeof f) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
 
   useEffect(() => {
-    const query = f.endereco.trim();
+    const query = [f.endereco.trim(), f.cidade.trim()].filter(Boolean).join(", ");
     if (query.length < 3) {
       setSuggestions([]);
       return;
@@ -58,7 +58,7 @@ function Registrar() {
     const timer = window.setTimeout(async () => {
       try {
         setSuggestionLoading(true);
-        const next = await fetchAddressSuggestions(query);
+        const next = await fetchAddressSuggestions(f.endereco.trim(), f.cidade.trim());
         if (active) setSuggestions(next);
       } catch {
         if (active) setSuggestions([]);
@@ -75,9 +75,10 @@ function Registrar() {
 
   function handleSelectSuggestion(suggestion: GeocodeSuggestion) {
     setF((prev) => ({ ...prev, endereco: suggestion.address }));
-    setPos([suggestion.latitude, suggestion.longitude]);
+    const hasCoordinates = suggestion.latitude !== 0 || suggestion.longitude !== 0;
+    if (hasCoordinates) setPos([suggestion.latitude, suggestion.longitude]);
     setSuggestions([]);
-    setErrors((prev) => ({ ...prev, endereco: "", pos: "" }));
+    setErrors((prev) => ({ ...prev, endereco: "", pos: !hasCoordinates ? "CEP localizado, mas sem coordenadas. Se necessário, ajuste no mapa." : "" }));
   }
 
   function onFiles(e: ChangeEvent<HTMLInputElement>) {
@@ -93,13 +94,43 @@ function Registrar() {
     }
   }
 
-  function useMyLocation() {
+  async function useMyLocation() {
     if (!("geolocation" in navigator)) return toast.error("Seu dispositivo não oferece localização.");
     if (!window.confirm("O Alerta Água quer usar sua localização atual para marcar o relato. Permitir?")) return;
+
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (p) => { setPos([p.coords.latitude, p.coords.longitude]); setLocating(false); },
-      () => { toast.error("Não foi possível obter sua localização. Selecione no mapa."); setLocating(false); },
+      async (p) => {
+        const lat = p.coords.latitude;
+        const lon = p.coords.longitude;
+        setPos([lat, lon]);
+
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&addressdetails=1&accept-language=pt-BR`);
+          if (!response.ok) throw new Error("reverse geocode failed");
+          const data = await response.json();
+          const display = typeof data?.display_name === "string" ? data.display_name : "";
+          const address = data?.address ?? {};
+          const city = address.city || address.town || address.municipality || address.village || address.county || "";
+          const road = address.road || address.pedestrian || address.street || "";
+          const formatted = road ? `${road}, ${city || "Localização atual"}` : (display || "Localização atual");
+
+          setF((prev) => ({
+            ...prev,
+            cidade: city || prev.cidade,
+            endereco: formatted,
+          }));
+        } catch {
+          setF((prev) => ({ ...prev, endereco: prev.endereco || "Localização atual" }));
+        } finally {
+          setLocating(false);
+          setErrors((prev) => ({ ...prev, pos: "" }));
+        }
+      },
+      () => {
+        toast.error("Não foi possível obter sua localização. Selecione no mapa.");
+        setLocating(false);
+      },
       { enableHighAccuracy: true, timeout: 10000 },
     );
   }
@@ -110,6 +141,7 @@ function Registrar() {
     const err: Record<string, string> = {};
     if (f.titulo.trim().length < 5) err.titulo = "Informe um título com pelo menos 5 caracteres.";
     if (f.descricao.trim().length < 10) err.descricao = "Descreva a situação (mínimo 10 caracteres).";
+    if (!f.cidade.trim()) err.cidade = "Informe a cidade.";
     if (!f.endereco.trim()) err.endereco = "Informe o endereço ou uma referência.";
     if (!pos) err.pos = "Selecione o local no mapa ou use sua localização.";
     if (!f.dataHora) err.dataHora = "Informe data e hora.";
@@ -118,7 +150,8 @@ function Registrar() {
     setBusy(true);
     try {
       const created = new Date(f.dataHora).toISOString();
-      const id = await createOccurrence({ titulo: f.titulo.trim(), tipo: f.tipo, gravidade: f.gravidade, descricao: f.descricao.trim(), endereco: f.endereco.trim(), latitude: pos![0], longitude: pos![1], createdAt: created, photos });
+      const enderecoFinal = [f.cidade.trim(), f.endereco.trim()].filter(Boolean).join(" - ");
+      const id = await createOccurrence({ titulo: f.titulo.trim(), tipo: f.tipo, gravidade: f.gravidade, descricao: f.descricao.trim(), endereco: enderecoFinal, latitude: pos![0], longitude: pos![1], createdAt: created, photos });
       toast.success("Relato publicado! Aguarda confirmação da comunidade.");
       navigate({ to: "/ocorrencia/$id", params: { id } });
     } catch (e2) {
@@ -149,9 +182,12 @@ function Registrar() {
           <Field label="Descrição detalhada *" error={errors.descricao}>
             <Textarea value={f.descricao} onChange={set("descricao")} rows={4} maxLength={1000} placeholder="Altura da água, se há carros parados, correnteza…" />
           </Field>
+          <Field label="Cidade *" error={errors.cidade}>
+            <Input value={f.cidade} onChange={set("cidade")} maxLength={80} placeholder="Ex.: São Paulo" />
+          </Field>
           <Field label="Endereço ou referência *" error={errors.endereco}>
             <div className="relative">
-              <Input value={f.endereco} onChange={set("endereco")} maxLength={200} placeholder="Ex.: Rua da Liberdade, São Paulo" />
+              <Input value={f.endereco} onChange={set("endereco")} maxLength={200} placeholder="Ex.: Rua da Liberdade, 123" />
               {suggestionLoading && (
                 <div className="absolute right-3 top-2.5 text-xs text-muted-foreground">Buscando…</div>
               )}
@@ -200,11 +236,6 @@ function Registrar() {
           </div>
           <p className="text-xs text-muted-foreground">Clique no mapa para marcar o ponto exato.</p>
           <MapView picked={pos} focus={pos} onPick={(la, ln) => setPos([la, ln])} className="h-80 w-full overflow-hidden rounded-xl border" />
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <Input readOnly value={pos ? pos[0].toFixed(6) : ""} placeholder="Latitude" aria-label="Latitude" />
-            <Input readOnly value={pos ? pos[1].toFixed(6) : ""} placeholder="Longitude" aria-label="Longitude" />
-          </div>
-          {errors.pos && <p className="text-sm text-destructive">{errors.pos}</p>}
           <div className="flex gap-2 pt-2">
             <Button type="submit" disabled={busy} className="flex-1">{busy && <Loader2 className="animate-spin" />} Publicar relato</Button>
             <Button type="button" variant="outline" asChild><Link to="/">Cancelar</Link></Button>

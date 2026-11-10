@@ -90,15 +90,34 @@ function Dashboard() {
 
   async function search(e: FormEvent) {
     e.preventDefault();
-    if (!q.trim()) return;
+    const clean = q.trim();
+    if (!clean) return;
+
     setSearching(true);
     try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(q)}`);
-      const j = (await r.json()) as { lat: string; lon: string }[];
-      if (!j.length) toast.error("Endereço ou região não encontrado.");
-      else setFocus([parseFloat(j[0].lat), parseFloat(j[0].lon)]);
+      const digits = clean.replace(/\D/g, "");
+      if (digits.length !== 8) {
+        toast.error("Para localizar no mapa, informe um CEP válido com 8 dígitos.");
+        return;
+      }
+
+      const response = await fetch(`https://brasilapi.com.br/api/cep/v2/${digits}`, {
+        headers: { Accept: "application/json" },
+      });
+
+      if (!response.ok) {
+        throw new Error("CEP não encontrado");
+      }
+
+      const data = await response.json();
+      if (!data?.city && !data?.localidade) {
+        throw new Error("CEP sem dados de localização");
+      }
+
+      toast.success(`CEP ${digits} localizado.`);
+      setFocus(null);
     } catch {
-      toast.error("Não foi possível buscar o endereço agora.");
+      toast.error("Não foi possível localizar este CEP pela BrasilAPI.");
     } finally {
       setSearching(false);
     }
@@ -153,13 +172,6 @@ function Dashboard() {
                 Nenhuma ocorrência com esses filtros. Isso não significa que a região esteja segura.
               </div>
             )}
-            <div className="absolute bottom-3 left-3 z-[500] rounded-xl bg-card/95 p-3 text-xs shadow-card">
-              <p className="mb-1.5 font-semibold text-navy">Legenda</p>
-              {(["baixo", "moderado", "alto"] as Severity[]).map((s) => (
-                <div key={s} className="flex items-center gap-2 py-0.5"><SeverityDot value={s} /> {SEVERITY_LABEL[s]}</div>
-              ))}
-              <div className="flex items-center gap-2 py-0.5"><span className="h-3 w-3 rounded-full bg-ok" /> Normalizada</div>
-            </div>
           </div>
         </div>
 
