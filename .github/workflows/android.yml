@@ -13,6 +13,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      JAVA_HOME: /usr/lib/jvm/temurin-21-jdk-amd64
+      ANDROID_HOME: ${{ github.workspace }}/android-sdk
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
     defaults:
       run:
         working-directory: make-this-project
@@ -25,7 +29,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Set up Java
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -37,12 +41,16 @@ jobs:
           packages: platform-tools
 
       - name: Install Android SDK packages
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+        shell: bash
         run: |
-          sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          mkdir -p "$ANDROID_SDK_ROOT"
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Configure local.properties for Gradle
+        shell: bash
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund

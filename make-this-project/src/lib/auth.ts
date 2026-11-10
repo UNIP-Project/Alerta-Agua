@@ -33,7 +33,7 @@ export function normalizeSupabaseAuthError(error: unknown): string {
   }
 
   if (text.includes("otp") || text.includes("email confirmation") || text.includes("verify your email")) {
-    return "Verifique seu e-mail para confirmar a criação da conta.";
+    return "Não foi possível criar a conta. Verifique seus dados e tente novamente.";
   }
 
   return "Não foi possível criar a conta. Verifique seus dados e tente novamente.";

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { fetchAddressSuggestions, type GeocodeSuggestion } from "@/lib/geocode";
+import { supabase } from "@/lib/supabase";
 import { createOccurrence } from "@/services/occurrences";
 import { SEVERITY_LABEL, TYPE_LABEL, type OccurrenceType, type Severity } from "@/types/occurrence";
 

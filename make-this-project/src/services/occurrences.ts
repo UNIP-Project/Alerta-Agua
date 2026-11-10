@@ -156,14 +156,26 @@ export type NewOccurrence = Omit<Occurrence, "id" | "updatedAt" | "isDemo" | "au
   userId?: string | null;
 };
 
-export async function createOccurrence(input: NewOccurrence): Promise<string> {
-  if (supabase) {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError || !userData.user) {
-      throw new Error("Você precisa estar logado para registrar um alagamento.");
-    }
+export function assertLoggedInUser<T extends { id: string } | null | undefined>(user: T): T {
+  if (!user) {
+    throw new Error("Você precisa estar logado para registrar ou confirmar um incidente.");
+  }
+  return user;
+}
 
-    const user = userData.user;
+async function getAuthenticatedUser() {
+  if (!supabase) return null;
+
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) return null;
+  return userData.user;
+}
+
+export async function createOccurrence(input: NewOccurrence): Promise<string> {
+  const user = await getAuthenticatedUser();
+  assertLoggedInUser(user);
+
+  if (supabase) {
     const now = new Date().toISOString();
     const payload = {
       titulo: input.titulo,
@@ -191,12 +203,7 @@ export async function createOccurrence(input: NewOccurrence): Promise<string> {
     return data.id;
   }
 
-  await new Promise((r) => setTimeout(r, 500));
-  const s = load();
-  const id = crypto.randomUUID();
-  const now = new Date().toISOString();
-  save({ ...s, occurrences: [...s.occurrences, { ...input, id, updatedAt: now, isDemo: true, autor: "Visitante (modo demonstração)" }] });
-  return id;
+  throw new Error("Você precisa estar logado para registrar ou confirmar um incidente.");
 }
 
 const VOTED_KEY = "alerta-agua:voted";
@@ -209,14 +216,16 @@ export function hasVoted(id: string): boolean {
 }
 
 export async function confirmOccurrence(id: string, kind: ConfirmationKind) {
+  const user = await getAuthenticatedUser();
+  assertLoggedInUser(user);
+
   if (hasVoted(id)) throw new Error("Você já enviou uma confirmação para este relato.");
 
   if (supabase) {
     const { error } = await supabase.from("confirmations").insert([{ occurrence_id: id, kind, created_at: new Date().toISOString() }]);
     if (error) throw new Error(error.message);
   } else {
-    const s = load();
-    save({ ...s, confirmations: [...s.confirmations, { id: crypto.randomUUID(), occurrenceId: id, kind, createdAt: new Date().toISOString() }] });
+    throw new Error("Você precisa estar logado para registrar ou confirmar um incidente.");
   }
 
   const voted = JSON.parse(localStorage.getItem(VOTED_KEY) ?? "[]") as string[];

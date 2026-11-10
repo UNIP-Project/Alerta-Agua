@@ -5,7 +5,7 @@ import { PageShell, Panel } from "@/components/layout/PageShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getRedirectUrl, normalizeSupabaseAuthError, validateSignupInput } from "@/lib/auth";
+import { normalizeSupabaseAuthError, validateSignupInput } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/cadastro")({
@@ -43,18 +43,16 @@ function Page() {
 
     setBusy(true);
     try {
-      const redirectTo = getRedirectUrl("/login");
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
           data: { full_name: name.trim() },
-          emailRedirectTo: redirectTo,
         },
       });
 
       if (error) throw error;
-      toast.success("Conta criada com sucesso! Verifique seu e-mail e depois faça login.");
+      toast.success("Conta criada com sucesso! Faça login para continuar.");
       navigate({ to: "/login" });
     } catch (error) {
       toast.error(normalizeSupabaseAuthError(error));

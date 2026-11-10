@@ -6,6 +6,7 @@ import { MapView } from "@/components/map/MapView";
 import { Panel } from "@/components/layout/PageShell";
 import { SeverityBadge, StatusBadge } from "@/components/occurrence/badges";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/lib/supabase";
 import { confirmOccurrence, hasVoted, useOccurrence } from "@/services/occurrences";
 import { TYPE_LABEL } from "@/types/occurrence";
 import { LIFECYCLE } from "@/lib/lifecycle";
@@ -22,10 +23,38 @@ export const Route = createFileRoute("/ocorrencia/$id")({
   component: Detalhes,
 });
 
+type SessionState = Awaited<ReturnType<NonNullable<typeof supabase>["auth"]["getSession"]>>["data"]["session"];
+
 function Detalhes() {
   const { id } = Route.useParams();
   const o = useOccurrence(id);
   const [voted, setVoted] = useState(false);
+  const [session, setSession] = useState<SessionState | null>(null);
+
+  useEffect(() => {
+    if (!supabase) {
+      setSession(null);
+      return;
+    }
+
+    let active = true;
+
+    async function sync() {
+      const { data } = await supabase.auth.getSession();
+      if (active) setSession(data.session);
+    }
+
+    void sync();
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (active) setSession(nextSession);
+    });
+
+    return () => {
+      active = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
   useEffect(() => setVoted(hasVoted(id)), [id]);
 
   if (o === undefined) return <main className="grid flex-1 place-items-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></main>;
@@ -79,11 +108,13 @@ function Detalhes() {
               <div className="rounded-xl bg-primary/10 p-3"><p className="font-display text-2xl font-bold text-primary">{o.confirmacoesAtiva}</p><p className="text-xs">Ainda existe</p></div>
               <div className="rounded-xl bg-ok/10 p-3"><p className="font-display text-2xl font-bold text-ok">{o.confirmacoesNormalizada}</p><p className="text-xs">Normalizado</p></div>
             </div>
-            <div className="mt-4 space-y-2">
-              <Button className="w-full" disabled={voted} onClick={() => void vote("ativa")}><Waves /> Confirmar que ainda existe</Button>
-              <Button variant="ok" className="w-full" disabled={voted} onClick={() => void vote("normalizada")}><CheckCircle2 /> Informar que foi normalizado</Button>
-              {voted && <p className="text-center text-xs text-muted-foreground">Você já confirmou este relato.</p>}
-            </div>
+            {session && (
+              <div className="mt-4 space-y-2">
+                <Button className="w-full" disabled={voted} onClick={() => void vote("ativa")}><Waves /> Confirmar que ainda existe</Button>
+                <Button variant="ok" className="w-full" disabled={voted} onClick={() => void vote("normalizada")}><CheckCircle2 /> Informar que foi normalizado</Button>
+                {voted && <p className="text-center text-xs text-muted-foreground">Você já confirmou este relato.</p>}
+              </div>
+            )}
           </Panel>
           <p className="text-xs text-muted-foreground">
             Relatos sem novas confirmações expiram após {LIFECYCLE.expiryHours}h. Um relato expirado não significa que o local esteja seguro.
