@@ -24,56 +24,32 @@ function normalizeCepQuery(query: string): string | null {
   return digits.length === 8 ? digits : null;
 }
 
-function normalizeBrasilApiResult(raw: any): GeocodeSuggestion | null {
+function normalizeNominatimResult(raw: unknown): GeocodeSuggestion | null {
   if (!raw || typeof raw !== "object") return null;
 
-  const cep = normalizePostalCode(raw.cep ?? raw.postcode);
-  const street = [raw.street ?? raw.logradouro, raw.neighborhood ?? raw.bairro].filter(Boolean).join(" - ");
-  const city = raw.city ?? raw.localidade ?? "";
-  const state = raw.state ?? raw.uf ?? "";
-
-  if (!street && !city && !state && !cep) return null;
-
-  const address = [
-    street,
-    [city, state].filter(Boolean).join(" - "),
-    cep ? `CEP ${cep}` : undefined,
-    "Brasil",
-  ].filter(Boolean).join(", ");
-
-  return {
-    label: address,
-    address,
-    latitude: 0,
-    longitude: 0,
-    postalCode: cep,
-  };
-}
-
-function normalizeNominatimResult(raw: any): GeocodeSuggestion | null {
-  if (!raw || typeof raw !== "object") return null;
-
-  const label = typeof raw.display_name === "string" ? raw.display_name.trim() : "";
-  const latitude = Number(raw.lat ?? raw.latitude);
-  const longitude = Number(raw.lon ?? raw.longitude);
+  const result = raw as Record<string, unknown>;
+  const label = typeof result.display_name === "string" ? result.display_name.trim() : "";
+  const latitude = Number(result.lat ?? result.latitude);
+  const longitude = Number(result.lon ?? result.longitude);
   if (!label || Number.isNaN(latitude) || Number.isNaN(longitude)) return null;
+
+  const address = result.address;
+  const addressDetails =
+    address && typeof address === "object" ? (address as Record<string, unknown>) : null;
 
   return {
     label,
     address: label,
     latitude,
     longitude,
-    postalCode: normalizePostalCode(raw.address?.postcode),
+    postalCode:
+      typeof addressDetails?.postcode === "string"
+        ? normalizePostalCode(addressDetails.postcode)
+        : undefined,
   };
 }
 
-export function normalizeGeocodeResult(raw: any): GeocodeSuggestion | null {
-  if (!raw || typeof raw !== "object") return null;
-
-  if (raw.cep || raw.postcode || raw.logradouro || raw.street || raw.localidade || raw.city) {
-    return normalizeBrasilApiResult(raw);
-  }
-
+export function normalizeGeocodeResult(raw: unknown): GeocodeSuggestion | null {
   return normalizeNominatimResult(raw);
 }
 
@@ -129,22 +105,7 @@ export async function fetchAddressSuggestions(query: string, city?: string): Pro
   const clean = query.trim();
   if (clean.length < 3) return [];
 
-  const cep = normalizeCepQuery(clean);
-  if (cep) {
-    const response = await fetch(`https://brasilapi.com.br/api/cep/v2/${cep}`, {
-      headers: { Accept: "application/json" },
-    });
-
-    if (!response.ok) {
-      throw new Error("Não foi possível buscar o endereço por CEP.");
-    }
-
-    const data = await response.json();
-    const result = normalizeBrasilApiResult(data);
-    return result ? prioritizeSuggestionMatches([result], clean, city) : [];
-  }
-
-  const streetQuery = [clean, city?.trim()].filter(Boolean).join(", ");
-  const results = await fetchNominatimSuggestions(streetQuery);
+  const addressQuery = [clean, city?.trim()].filter(Boolean).join(", ");
+  const results = await fetchNominatimSuggestions(addressQuery);
   return prioritizeSuggestionMatches(results, clean, city);
 }

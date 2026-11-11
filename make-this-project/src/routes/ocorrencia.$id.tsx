@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { confirmOccurrence, hasVoted, useOccurrence } from "@/services/occurrences";
 import { TYPE_LABEL } from "@/types/occurrence";
-import { LIFECYCLE } from "@/lib/lifecycle";
 
 export const Route = createFileRoute("/ocorrencia/$id")({
   head: () => ({
@@ -116,9 +115,6 @@ function Detalhes() {
               </div>
             )}
           </Panel>
-          <p className="text-xs text-muted-foreground">
-            Relatos sem novas confirmações expiram após {LIFECYCLE.expiryHours}h. Um relato expirado não significa que o local esteja seguro.
-          </p>
         </aside>
       </div>
     </main>

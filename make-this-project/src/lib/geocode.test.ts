@@ -7,20 +7,19 @@ afterEach(() => {
 });
 
 describe("normalizeGeocodeResult", () => {
-  it("maps BrasilAPI CEP data to a consistent address model", () => {
+  it("maps Nominatim results to a consistent address model", () => {
     const raw = {
-      cep: "01310100",
-      street: "Avenida Paulista",
-      neighborhood: "Bela Vista",
-      city: "São Paulo",
-      state: "SP",
+      display_name: "Avenida Paulista, Bela Vista, São Paulo, SP, Brasil",
+      lat: "-23.5617",
+      lon: "-46.6560",
+      address: { postcode: "01310-100" },
     };
 
     expect(normalizeGeocodeResult(raw)).toEqual({
-      label: "Avenida Paulista - Bela Vista, São Paulo - SP, CEP 01310-100, Brasil",
-      address: "Avenida Paulista - Bela Vista, São Paulo - SP, CEP 01310-100, Brasil",
-      latitude: 0,
-      longitude: 0,
+      label: "Avenida Paulista, Bela Vista, São Paulo, SP, Brasil",
+      address: "Avenida Paulista, Bela Vista, São Paulo, SP, Brasil",
+      latitude: -23.5617,
+      longitude: -46.656,
       postalCode: "01310-100",
     });
   });
@@ -41,30 +40,28 @@ describe("signup validation", () => {
 });
 
 describe("fetchAddressSuggestions", () => {
-  it("returns CEP-based suggestions from the BrasilAPI", async () => {
+  it("uses Nominatim to resolve a CEP to a geocoded address", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({
-        cep: "01310100",
-        street: "Avenida Paulista",
-        neighborhood: "Bela Vista",
-        city: "São Paulo",
-        state: "SP",
-      }),
+      json: async () => [{
+        display_name: "Avenida Paulista, Bela Vista, São Paulo, SP, Brasil",
+        lat: "-23.5617",
+        lon: "-46.6560",
+        address: { postcode: "01310-100" },
+      }],
     });
     vi.stubGlobal("fetch", mockFetch);
 
     const results = await fetchAddressSuggestions("01310-100");
 
     expect(results[0]).toMatchObject({
-      label: "Avenida Paulista - Bela Vista, São Paulo - SP, CEP 01310-100, Brasil",
-      address: "Avenida Paulista - Bela Vista, São Paulo - SP, CEP 01310-100, Brasil",
-      latitude: 0,
-      longitude: 0,
+      address: "Avenida Paulista, Bela Vista, São Paulo, SP, Brasil",
+      latitude: -23.5617,
+      longitude: -46.656,
       postalCode: "01310-100",
     });
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://brasilapi.com.br/api/cep/v2/01310100",
+      expect.stringContaining("nominatim.openstreetmap.org/search"),
       expect.objectContaining({
         headers: expect.objectContaining({
           Accept: "application/json",
@@ -73,7 +70,7 @@ describe("fetchAddressSuggestions", () => {
     );
   });
 
-  it("returns street-name suggestions from Nominatim when no CEP is provided", async () => {
+  it("returns street-name suggestions from Nominatim", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => [

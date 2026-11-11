@@ -6,6 +6,7 @@ import { MapView } from "@/components/map/MapView";
 import { SeverityBadge, SeverityDot, StatusBadge } from "@/components/occurrence/badges";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { fetchAddressSuggestions } from "@/lib/geocode";
 import { supabase } from "@/lib/supabase";
 import { useOccurrences } from "@/services/occurrences";
 import { SEVERITY_LABEL, STATUS_LABEL, type OccurrenceStatus, type Severity } from "@/types/occurrence";
@@ -95,29 +96,16 @@ function Dashboard() {
 
     setSearching(true);
     try {
-      const digits = clean.replace(/\D/g, "");
-      if (digits.length !== 8) {
-        toast.error("Para localizar no mapa, informe um CEP válido com 8 dígitos.");
+      const results = await fetchAddressSuggestions(clean);
+      const firstResult = results[0];
+      if (!firstResult) {
+        toast.error("Não foi possível encontrar esse endereço ou região.");
         return;
       }
 
-      const response = await fetch(`https://brasilapi.com.br/api/cep/v2/${digits}`, {
-        headers: { Accept: "application/json" },
-      });
-
-      if (!response.ok) {
-        throw new Error("CEP não encontrado");
-      }
-
-      const data = await response.json();
-      if (!data?.city && !data?.localidade) {
-        throw new Error("CEP sem dados de localização");
-      }
-
-      toast.success(`CEP ${digits} localizado.`);
-      setFocus(null);
+      setFocus([firstResult.latitude, firstResult.longitude]);
     } catch {
-      toast.error("Não foi possível localizar este CEP pela BrasilAPI.");
+      toast.error("Não foi possível buscar esse endereço ou região.");
     } finally {
       setSearching(false);
     }

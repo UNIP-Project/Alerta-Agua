@@ -72,14 +72,13 @@ function Registrar() {
       active = false;
       clearTimeout(timer);
     };
-  }, [f.endereco]);
+  }, [f.endereco, f.cidade]);
 
   function handleSelectSuggestion(suggestion: GeocodeSuggestion) {
     setF((prev) => ({ ...prev, endereco: suggestion.address }));
-    const hasCoordinates = suggestion.latitude !== 0 || suggestion.longitude !== 0;
-    if (hasCoordinates) setPos([suggestion.latitude, suggestion.longitude]);
+    setPos([suggestion.latitude, suggestion.longitude]);
     setSuggestions([]);
-    setErrors((prev) => ({ ...prev, endereco: "", pos: !hasCoordinates ? "CEP localizado, mas sem coordenadas. Se necessário, ajuste no mapa." : "" }));
+    setErrors((prev) => ({ ...prev, endereco: "", pos: "" }));
   }
 
   function onFiles(e: ChangeEvent<HTMLInputElement>) {
