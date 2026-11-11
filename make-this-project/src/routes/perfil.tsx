@@ -3,7 +3,7 @@ import { CalendarClock, Mail, ShieldCheck, UserRound, Waves } from "lucide-react
 import { useEffect, useMemo, useState } from "react";
 import { PageShell, Panel } from "@/components/layout/PageShell";
 import { Button } from "@/components/ui/button";
-import { computeStatus } from "@/lib/lifecycle";
+import { computeStatus, getClosureAt, getLastActivityAt } from "@/lib/lifecycle";
 import { supabase } from "@/lib/supabase";
 import type { Confirmation, Occurrence, OccurrenceStatus } from "@/types/occurrence";
 
@@ -12,6 +12,8 @@ interface UserIncident extends Occurrence {
   confirmacoesAtiva: number;
   confirmacoesNormalizada: number;
   history: Confirmation[];
+  lastActivityAt: number;
+  closesAt: number;
 }
 
 export const Route = createFileRoute("/perfil")({
@@ -100,6 +102,8 @@ function PerfilPage() {
           confirmacoesAtiva: list.filter((c) => c.kind === "ativa").length,
           confirmacoesNormalizada: list.filter((c) => c.kind === "normalizada").length,
           history: list,
+          lastActivityAt: getLastActivityAt(occurrence, list),
+          closesAt: getClosureAt(occurrence, list),
         };
       });
 
@@ -265,6 +269,10 @@ function PerfilPage() {
                     ) : (
                       <p className="mt-4 text-sm text-muted-foreground">Ainda não há evoluções de confirmação para este incidente.</p>
                     )}
+                    <div className="mt-4 space-y-1 border-t pt-3 text-sm text-muted-foreground">
+                      <p>Última atualização: {new Date(record.lastActivityAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</p>
+                      <p>Prazo de encerramento: {new Date(record.closesAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</p>
+                    </div>
                   </div>
                 ))}
               </div>

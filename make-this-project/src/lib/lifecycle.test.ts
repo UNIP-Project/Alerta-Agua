@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeStatus, getNextStatusChangeAt } from "./lifecycle";
+import { computeStatus, getClosureAt, getLastActivityAt, getNextStatusChangeAt } from "./lifecycle";
 
 const now = new Date("2026-10-18T12:00:00Z");
 const ago = (h: number) => new Date(now.getTime() - h * 3600_000).toISOString();
@@ -58,5 +58,33 @@ describe("getNextStatusChangeAt", () => {
   it("returns no next transition after the report expires", () => {
     const confirmation = { kind: "normalizada" as const, createdAt: ago(13) };
     expect(getNextStatusChangeAt(occurrence("alto"), [confirmation], now)).toBeNull();
+  });
+});
+
+describe("report activity and closure timestamps", () => {
+  it("uses the latest confirmation as the report's last update", () => {
+    const active = { kind: "ativa" as const, createdAt: ago(2) };
+    const normal = { kind: "normalizada" as const, createdAt: ago(1) };
+    expect(getLastActivityAt(occurrence("moderado", ago(4)), [active, normal])).toBe(
+      new Date(normal.createdAt).getTime(),
+    );
+  });
+
+  it("calculates closure at the end of the active and normalized windows", () => {
+    const active = { kind: "ativa" as const, createdAt: ago(1) };
+    expect(getClosureAt(occurrence("alto"), [active])).toBe(
+      new Date(active.createdAt).getTime() + 36 * 3600_000,
+    );
+
+    const normal = { kind: "normalizada" as const, createdAt: ago(1) };
+    expect(getClosureAt(occurrence("alto"), [normal])).toBe(
+      new Date(normal.createdAt).getTime() + 12 * 3600_000,
+    );
+  });
+
+  it("uses the pending expiration time as closure when there are no confirmations", () => {
+    expect(getClosureAt(occurrence("baixo", ago(1)), [])).toBe(
+      new Date(ago(1)).getTime() + 12 * 3600_000,
+    );
   });
 });

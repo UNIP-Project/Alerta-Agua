@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, CheckCircle2, Loader2, Waves } from "lucide-react";
+import { ArrowLeft, CalendarClock, CheckCircle2, Loader2, Waves } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { MapView } from "@/components/map/MapView";
@@ -7,7 +7,7 @@ import { Panel } from "@/components/layout/PageShell";
 import { SeverityBadge, StatusBadge } from "@/components/occurrence/badges";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { confirmOccurrence, hasVoted, useOccurrence } from "@/services/occurrences";
+import { confirmOccurrence, hasVoted, useOccurrence, type OccurrenceView } from "@/services/occurrences";
 import { TYPE_LABEL } from "@/types/occurrence";
 
 export const Route = createFileRoute("/ocorrencia/$id")({
@@ -90,7 +90,6 @@ function Detalhes() {
           <p className="mt-4 whitespace-pre-line">{o.descricao}</p>
           <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
             <Info k="Endereço" v={o.endereco} />
-            <Info k="Registrado em" v={new Date(o.createdAt).toLocaleString("pt-BR")} />
             <Info k="Coordenadas" v={`${o.latitude.toFixed(5)}, ${o.longitude.toFixed(5)}`} />
             <Info k="Autor" v={o.autor} />
           </dl>
@@ -121,9 +120,61 @@ function Detalhes() {
               </p>
             )}
           </Panel>
+          <ReportTimeline occurrence={o} />
         </aside>
       </div>
     </main>
+  );
+}
+
+function ReportTimeline({ occurrence }: { occurrence: OccurrenceView }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const remainingMinutes = Math.max(0, Math.ceil((occurrence.closesAt - now) / 60_000));
+  const days = Math.floor(remainingMinutes / (24 * 60));
+  const hours = Math.floor((remainingMinutes % (24 * 60)) / 60);
+  const minutes = remainingMinutes % 60;
+  const timeLeft = [
+    days > 0 ? `${days}d` : null,
+    hours > 0 ? `${hours}h` : null,
+    `${minutes}min`,
+  ].filter(Boolean).join(" ");
+  const formatDate = (timestamp: number) =>
+    new Date(timestamp).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+
+  return (
+    <Panel className="space-y-4">
+      <h2 className="flex items-center gap-2 font-bold text-navy">
+        <CalendarClock className="h-5 w-5 text-primary" />
+        Registro e prazo
+      </h2>
+      <div className="space-y-3 text-sm">
+        <TimelineItem label="Registrado em" value={formatDate(new Date(occurrence.createdAt).getTime())} />
+        <TimelineItem label="Atualizado pela última vez" value={formatDate(occurrence.lastActivityAt)} />
+        <TimelineItem
+          label="Prazo de encerramento"
+          value={formatDate(occurrence.closesAt)}
+          emphasis
+        />
+        <p className="rounded-lg bg-primary/10 px-3 py-2 font-semibold text-primary">
+          {remainingMinutes > 0 ? `Expira em ${timeLeft}` : "Prazo encerrado"}
+        </p>
+      </div>
+    </Panel>
+  );
+}
+
+function TimelineItem({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={emphasis ? "font-semibold text-navy" : "text-foreground"}>{value}</p>
+    </div>
   );
 }
 

@@ -3,7 +3,7 @@
  * Uses Supabase when configured; otherwise falls back to the local demo store.
  */
 import { useCallback, useEffect, useState } from "react";
-import { computeStatus, getNextStatusChangeAt } from "@/lib/lifecycle";
+import { computeStatus, getClosureAt, getLastActivityAt, getNextStatusChangeAt } from "@/lib/lifecycle";
 import { supabase } from "@/lib/supabase";
 import type { Confirmation, ConfirmationKind, Occurrence, OccurrenceStatus } from "@/types/occurrence";
 
@@ -13,6 +13,8 @@ export interface OccurrenceView extends Occurrence {
   status: OccurrenceStatus;
   confirmacoesAtiva: number;
   confirmacoesNormalizada: number;
+  lastActivityAt: number;
+  closesAt: number;
   nextStatusChangeAt: number | null;
 }
 
@@ -82,6 +84,8 @@ function toView(s: Store, o: Occurrence): OccurrenceView {
     status: computeStatus(o, cs),
     confirmacoesAtiva: cs.filter((c) => c.kind === "ativa").length,
     confirmacoesNormalizada: cs.filter((c) => c.kind === "normalizada").length,
+    lastActivityAt: getLastActivityAt(o, cs),
+    closesAt: getClosureAt(o, cs),
     nextStatusChangeAt: getNextStatusChangeAt(o, cs),
   };
 }
@@ -92,6 +96,8 @@ function toSupabaseView(occurrence: Occurrence, confirmations: Confirmation[]): 
     status: computeStatus(occurrence, confirmations),
     confirmacoesAtiva: confirmations.filter((c) => c.kind === "ativa").length,
     confirmacoesNormalizada: confirmations.filter((c) => c.kind === "normalizada").length,
+    lastActivityAt: getLastActivityAt(occurrence, confirmations),
+    closesAt: getClosureAt(occurrence, confirmations),
     nextStatusChangeAt: getNextStatusChangeAt(occurrence, confirmations),
   };
 }

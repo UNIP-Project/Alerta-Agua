@@ -141,8 +141,11 @@ function MeusRelatosPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-3 border-t pt-3">
-                <span className="inline-flex items-center gap-2 text-sm text-muted-foreground"><CalendarClock className="h-4 w-4" /> Atualizado em {new Date(item.updatedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</span>
+              <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <p className="inline-flex items-center gap-2"><CalendarClock className="h-4 w-4" /> Última atualização: {new Date(item.lastActivityAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</p>
+                  <p className="inline-flex items-center gap-2"><CalendarClock className="h-4 w-4" /> Prazo de encerramento: {new Date(item.closesAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</p>
+                </div>
                 <Button asChild variant="outline" size="sm">
                   <Link to="/ocorrencia/$id" params={{ id: item.id }}>Ver detalhes</Link>
                 </Button>

@@ -24,6 +24,36 @@ function latestConfirmation(confirmations: LifecycleConfirmation[]): LifecycleCo
   }, undefined);
 }
 
+export function getLastActivityAt(
+  occurrence: LifecycleOccurrence,
+  confirmations: LifecycleConfirmation[],
+): number {
+  const createdAt = new Date(occurrence.createdAt).getTime();
+  const latest = latestConfirmation(confirmations);
+  return latest ? Math.max(createdAt, new Date(latest.createdAt).getTime()) : createdAt;
+}
+
+export function getClosureAt(
+  occurrence: LifecycleOccurrence,
+  confirmations: LifecycleConfirmation[],
+): number {
+  const latest = latestConfirmation(confirmations);
+  if (!latest) {
+    return new Date(occurrence.createdAt).getTime() + LIFECYCLE.pendingExpiryHours * HOUR_MS;
+  }
+
+  const confirmationAt = new Date(latest.createdAt).getTime();
+  if (latest.kind === "normalizada") {
+    return confirmationAt + LIFECYCLE.normalizedVisibilityHours * HOUR_MS;
+  }
+
+  return (
+    confirmationAt +
+    (LIFECYCLE.activeExpiryHours[occurrence.gravidade] + LIFECYCLE.normalizedVisibilityHours) *
+      HOUR_MS
+  );
+}
+
 export function getNextStatusChangeAt(
   occurrence: LifecycleOccurrence,
   confirmations: LifecycleConfirmation[],
