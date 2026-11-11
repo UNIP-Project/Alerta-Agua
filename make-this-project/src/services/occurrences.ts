@@ -169,11 +169,11 @@ export type NewOccurrence = Omit<Occurrence, "id" | "updatedAt" | "isDemo" | "au
   userId?: string | null;
 };
 
-export function assertLoggedInUser<T extends { id: string } | null | undefined>(user: T): T {
+export function assertLoggedInUser<T extends { id: string } | null | undefined>(user: T): NonNullable<T> {
   if (!user) {
     throw new Error("Você precisa estar logado para registrar ou confirmar um incidente.");
   }
-  return user;
+  return user as NonNullable<T>;
 }
 
 async function getAuthenticatedUser() {
@@ -217,6 +217,21 @@ export async function createOccurrence(input: NewOccurrence): Promise<string> {
   }
 
   throw new Error("Você precisa estar logado para registrar ou confirmar um incidente.");
+}
+
+export async function deleteOccurrence(id: string): Promise<void> {
+  const user = assertLoggedInUser(await getAuthenticatedUser());
+  if (!supabase) throw new Error("Não foi possível acessar os relatos.");
+
+  const { data, error } = await supabase
+    .from("occurrences")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("id");
+
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error("Relato não encontrado ou você não tem permissão para excluí-lo.");
 }
 
 const VOTED_KEY = "alerta-agua:voted";

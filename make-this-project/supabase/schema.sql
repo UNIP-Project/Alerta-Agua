@@ -31,6 +31,11 @@ for select using (true);
 create policy "Permitir inserção de ocorrências" on occurrences
 for insert with check (true);
 
+grant delete on occurrences to authenticated;
+drop policy if exists "Permitir exclusão de ocorrências pelo autor" on occurrences;
+create policy "Permitir exclusão de ocorrências pelo autor" on occurrences
+for delete to authenticated using (auth.uid() = user_id);
+
 create policy "Permitir leitura pública de confirmações" on confirmations
 for select using (true);
 

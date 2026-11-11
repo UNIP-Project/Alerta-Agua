@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarClock, MapPinned, ShieldAlert, UserRound } from "lucide-react";
+import { CalendarClock, Loader2, MapPinned, ShieldAlert, Trash2, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { PageShell, Panel } from "@/components/layout/PageShell";
 import { SeverityBadge, StatusBadge } from "@/components/occurrence/badges";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { useOccurrences } from "@/services/occurrences";
+import { deleteOccurrence, useOccurrences } from "@/services/occurrences";
 
 type SessionState = Awaited<ReturnType<NonNullable<typeof supabase>["auth"]["getSession"]>>["data"]["session"];
 
@@ -21,9 +23,13 @@ export const Route = createFileRoute("/meus-relatos")({
   component: MeusRelatosPage,
 });
 
-function MeusRelatosPage() {
+export function MeusRelatosPage() {
   const [session, setSession] = useState<SessionState | null>(null);
-  const all = useOccurrences();
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; titulo: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const all = useOccurrences(refreshKey);
 
   useEffect(() => {
     if (!supabase) {
@@ -51,8 +57,24 @@ function MeusRelatosPage() {
 
   const meusRelatos = useMemo(() => {
     if (!all || !session?.user?.id) return [];
-    return all.filter((item) => item.userId === session.user.id || item.autor === session.user.email);
-  }, [all, session]);
+    return all.filter((item) => (item.userId === session.user.id || item.autor === session.user.email) && !removedIds.includes(item.id));
+  }, [all, session, removedIds]);
+
+  async function handleDelete() {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    try {
+      await deleteOccurrence(pendingDelete.id);
+      setRemovedIds((ids) => [...ids, pendingDelete.id]);
+      setRefreshKey((key) => key + 1);
+      setPendingDelete(null);
+      toast.success("Relato excluído com sucesso.");
+    } catch (error) {
+      toast.error((error as Error).message || "Não foi possível excluir o relato.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   if (!supabase) {
     return (
@@ -146,14 +168,37 @@ function MeusRelatosPage() {
                   <p className="inline-flex items-center gap-2"><CalendarClock className="h-4 w-4" /> Última atualização: {new Date(item.lastActivityAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</p>
                   <p className="inline-flex items-center gap-2"><CalendarClock className="h-4 w-4" /> Prazo de encerramento: {new Date(item.closesAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</p>
                 </div>
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/ocorrencia/$id" params={{ id: item.id }}>Ver detalhes</Link>
-                </Button>
+                <div className="flex gap-2">
+                  <Button asChild variant="outline" size="sm">
+                    <Link to="/ocorrencia/$id" params={{ id: item.id }}>Ver detalhes</Link>
+                  </Button>
+                  {item.userId === session.user.id && (
+                    <Button type="button" variant="destructive" size="sm" onClick={() => setPendingDelete({ id: item.id, titulo: item.titulo })}>
+                      <Trash2 /> Excluir
+                    </Button>
+                  )}
+                </div>
               </div>
             </Panel>
           ))
         )}
       </div>
+      <AlertDialog open={pendingDelete !== null} onOpenChange={(open) => { if (!open && !deleting) setPendingDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir relato?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O relato “{pendingDelete?.titulo}” e suas confirmações serão excluídos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <Button type="button" variant="destructive" disabled={deleting} onClick={() => void handleDelete()}>
+              {deleting && <Loader2 className="animate-spin" />} Excluir relato
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageShell>
   );
 }
