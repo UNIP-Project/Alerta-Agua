@@ -2,13 +2,8 @@
  * Data access layer.
  * Uses Supabase when configured; otherwise falls back to the local demo store.
  */
-<<<<<<< HEAD
-import { useEffect, useState } from "react";
-import { computeStatus, getNextStatusChangeAt } from "@/lib/lifecycle";
-=======
 import { useCallback, useEffect, useState } from "react";
 import { computeStatus } from "@/lib/lifecycle";
->>>>>>> 2faf1bf11dea73a0acb1d50bdd0f09f90486947a
 import { supabase } from "@/lib/supabase";
 import type { Confirmation, ConfirmationKind, Occurrence, OccurrenceStatus } from "@/types/occurrence";
 
