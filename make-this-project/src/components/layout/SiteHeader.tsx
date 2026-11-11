@@ -46,7 +46,7 @@ export function SiteHeader() {
     if (!supabase) return;
     await supabase.auth.signOut();
     setSession(null);
-    navigate({ to: "/" });
+    navigate({ to: "/login", replace: true });
   }
 
   const displayName = session?.user?.user_metadata?.full_name || session?.user?.email?.split("@")?.[0] || "Usuário";

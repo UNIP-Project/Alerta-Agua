@@ -4,20 +4,18 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
   HeadContent,
   Scripts,
-  redirect,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
 import { SiteHeader, SiteFooter } from "@/components/layout/SiteHeader";
+import { AuthGate } from "@/components/auth/AuthGate";
 import { Toaster } from "@/components/ui/sonner";
-import { supabase } from "@/lib/supabase";
 import appCss from "../styles.css?url";
 import { reportAPSError } from "../lib/aps-error-reporting";
-
-const PUBLIC_PATHS = new Set(["/login", "/cadastro", "/recuperar-senha", "/redefinir-senha"]);
 
 function NotFoundComponent() {
   return (
@@ -80,17 +78,6 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  beforeLoad: async ({ location }) => {
-    if (PUBLIC_PATHS.has(location.pathname) || typeof window === "undefined") return;
-
-    if (!supabase) {
-      throw redirect({ to: "/login" });
-    }
-
-    const { data, error } = await supabase.auth.getSession();
-    if (error) throw error;
-    if (!data.session) throw redirect({ to: "/login" });
-  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -133,15 +120,18 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { pathname } = useLocation();
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <div className="flex min-h-screen flex-col">
-        <SiteHeader />
-        <Outlet />
-        <SiteFooter />
-      </div>
+      <AuthGate key={pathname} pathname={pathname}>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <div className="flex min-h-screen flex-col">
+          <SiteHeader />
+          <Outlet />
+          <SiteFooter />
+        </div>
+      </AuthGate>
       <Toaster richColors position="top-center" />
     </QueryClientProvider>
   );
