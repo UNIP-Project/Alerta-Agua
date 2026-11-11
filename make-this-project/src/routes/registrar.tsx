@@ -1,7 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Capacitor } from "@capacitor/core";
-import { Geolocation } from "@capacitor/geolocation";
-import { ImagePlus, Loader2, LocateFixed, X } from "lucide-react";
+import { ImagePlus, Loader2, X } from "lucide-react";
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { toast } from "sonner";
 import { MapView } from "@/components/map/MapView";
@@ -44,7 +42,6 @@ function Registrar() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [locating, setLocating] = useState(false);
   const [suggestions, setSuggestions] = useState<GeocodeSuggestion[]>([]);
   const [suggestionLoading, setSuggestionLoading] = useState(false);
 
@@ -96,72 +93,6 @@ function Registrar() {
     }
   }
 
-  async function useMyLocation() {
-    setLocating(true);
-    try {
-      let coordinates: { latitude: number; longitude: number };
-
-      if (Capacitor.isNativePlatform()) {
-        let permission = await Geolocation.checkPermissions();
-        if (permission.location !== "granted" && permission.coarseLocation !== "granted") {
-          permission = await Geolocation.requestPermissions({ permissions: ["location"] });
-        }
-
-        if (permission.location !== "granted" && permission.coarseLocation !== "granted") {
-          toast.error("Permita o acesso à localização para marcar o relato.");
-          return;
-        }
-
-        const position = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: true,
-          timeout: 15000,
-        });
-        coordinates = position.coords;
-      } else {
-        if (!navigator.geolocation) {
-          toast.error("Este navegador não oferece acesso à localização.");
-          return;
-        }
-
-        coordinates = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(
-            ({ coords }) => resolve(coords),
-            reject,
-            { enableHighAccuracy: true, timeout: 15000 },
-          );
-        });
-      }
-
-      const { latitude: lat, longitude: lon } = coordinates;
-      setPos([lat, lon]);
-
-      try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&addressdetails=1&accept-language=pt-BR`);
-        if (!response.ok) throw new Error("reverse geocode failed");
-        const data = await response.json();
-        const display = typeof data?.display_name === "string" ? data.display_name : "";
-        const address = data?.address ?? {};
-        const city = address.city || address.town || address.municipality || address.village || address.county || "";
-        const road = address.road || address.pedestrian || address.street || "";
-        const formatted = road ? `${road}, ${city || "Localização atual"}` : (display || "Localização atual");
-
-        setF((prev) => ({
-          ...prev,
-          cidade: city || prev.cidade,
-          endereco: formatted,
-        }));
-      } catch {
-        setF((prev) => ({ ...prev, endereco: prev.endereco || "Localização atual" }));
-      }
-
-      setErrors((prev) => ({ ...prev, pos: "" }));
-    } catch {
-      toast.error("Não foi possível obter sua localização. Ative a Localização do celular e permita o acesso ao Alerta Água.");
-    } finally {
-      setLocating(false);
-    }
-  }
-
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -170,7 +101,7 @@ function Registrar() {
     if (f.descricao.trim().length < 10) err.descricao = "Descreva a situação (mínimo 10 caracteres).";
     if (!f.cidade.trim()) err.cidade = "Informe a cidade.";
     if (!f.endereco.trim()) err.endereco = "Informe o endereço ou uma referência.";
-    if (!pos) err.pos = "Selecione o local no mapa ou use sua localização.";
+    if (!pos) err.pos = "Selecione o local no mapa ou escolha uma sugestão de endereço.";
     if (!f.dataHora) err.dataHora = "Informe data e hora.";
     setErrors(err);
     if (Object.keys(err).length) return toast.error("Revise os campos destacados.");
@@ -255,14 +186,9 @@ function Registrar() {
           </div>
         </Panel>
         <Panel className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <Label>Localização *</Label>
-            <Button type="button" variant="outline" size="sm" onClick={useMyLocation} disabled={locating}>
-              {locating ? <Loader2 className="animate-spin" /> : <LocateFixed />} Usar minha localização
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">Clique no mapa para marcar o ponto exato.</p>
-          <MapView picked={pos} focus={pos} onPick={(la, ln) => setPos([la, ln])} className="h-80 w-full overflow-hidden rounded-xl border" />
+          <Label>Localização *</Label>
+          <p className="text-xs text-muted-foreground">Clique no mapa para marcar o ponto exato ou escolha uma sugestão de endereço.</p>
+          <MapView picked={pos} focus={pos} onPick={(la, ln) => { setPos([la, ln]); setErrors((prev) => ({ ...prev, pos: "" })); }} className="h-80 w-full overflow-hidden rounded-xl border" />
           <div className="flex gap-2 pt-2">
             <Button type="submit" disabled={busy} className="flex-1">{busy && <Loader2 className="animate-spin" />} Publicar relato</Button>
             <Button type="button" variant="outline" asChild><Link to="/">Cancelar</Link></Button>
