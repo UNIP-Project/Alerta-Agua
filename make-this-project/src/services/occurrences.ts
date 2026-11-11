@@ -3,7 +3,7 @@
  * Uses Supabase when configured; otherwise falls back to the local demo store.
  */
 import { useCallback, useEffect, useState } from "react";
-import { computeStatus } from "@/lib/lifecycle";
+import { computeStatus, getNextStatusChangeAt } from "@/lib/lifecycle";
 import { supabase } from "@/lib/supabase";
 import type { Confirmation, ConfirmationKind, Occurrence, OccurrenceStatus } from "@/types/occurrence";
 
