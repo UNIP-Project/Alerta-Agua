@@ -6,14 +6,18 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  redirect,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
 import { SiteHeader, SiteFooter } from "@/components/layout/SiteHeader";
 import { Toaster } from "@/components/ui/sonner";
+import { supabase } from "@/lib/supabase";
 import appCss from "../styles.css?url";
 import { reportAPSError } from "../lib/aps-error-reporting";
+
+const PUBLIC_PATHS = new Set(["/login", "/cadastro", "/recuperar-senha", "/redefinir-senha"]);
 
 function NotFoundComponent() {
   return (
@@ -76,6 +80,17 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  beforeLoad: async ({ location }) => {
+    if (PUBLIC_PATHS.has(location.pathname) || typeof window === "undefined") return;
+
+    if (!supabase) {
+      throw redirect({ to: "/login" });
+    }
+
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (!data.session) throw redirect({ to: "/login" });
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
