@@ -2,7 +2,7 @@
  * Data access layer.
  * Uses Supabase when configured; otherwise falls back to the local demo store.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { computeStatus } from "@/lib/lifecycle";
 import { supabase } from "@/lib/supabase";
 import type { Confirmation, ConfirmationKind, Occurrence, OccurrenceStatus } from "@/types/occurrence";
@@ -233,7 +233,7 @@ export async function confirmOccurrence(id: string, kind: ConfirmationKind) {
 }
 
 /** Subscribes to the store; returns null until loaded in the browser. */
-export function useOccurrences(): OccurrenceView[] | null {
+export function useOccurrences(refreshKey = 0): OccurrenceView[] | null {
   const [data, setData] = useState<OccurrenceView[] | null>(null);
   useEffect(() => {
     let active = true;
@@ -263,12 +263,13 @@ export function useOccurrences(): OccurrenceView[] | null {
     return () => {
       active = false;
     };
-  }, []);
+  }, [refreshKey]);
   return data;
 }
 
-export function useOccurrence(id: string): OccurrenceView | null | undefined {
-  const all = useOccurrences();
-  if (all === null) return undefined;
-  return all.find((o) => o.id === id) ?? null;
+export function useOccurrence(id: string): { occurrence: OccurrenceView | null | undefined; refresh: () => void } {
+  const [refreshKey, setRefreshKey] = useState(0);
+  const all = useOccurrences(refreshKey);
+  const refresh = useCallback(() => setRefreshKey((key) => key + 1), []);
+  return { occurrence: all === null ? undefined : (all.find((o) => o.id === id) ?? null), refresh };
 }

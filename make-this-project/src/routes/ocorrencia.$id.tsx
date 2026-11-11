@@ -26,7 +26,7 @@ type SessionState = Awaited<ReturnType<NonNullable<typeof supabase>["auth"]["get
 
 function Detalhes() {
   const { id } = Route.useParams();
-  const o = useOccurrence(id);
+  const { occurrence: o, refresh } = useOccurrence(id);
   const [voted, setVoted] = useState(false);
   const [session, setSession] = useState<SessionState | null>(null);
 
@@ -69,6 +69,7 @@ function Detalhes() {
     try {
       await confirmOccurrence(id, kind);
       setVoted(true);
+      refresh();
       toast.success("Obrigado! Sua confirmação foi registrada.");
     } catch (e) {
       toast.error((e as Error).message);
