@@ -107,12 +107,17 @@ function Detalhes() {
               <div className="rounded-xl bg-primary/10 p-3"><p className="font-display text-2xl font-bold text-primary">{o.confirmacoesAtiva}</p><p className="text-xs">Ainda existe</p></div>
               <div className="rounded-xl bg-ok/10 p-3"><p className="font-display text-2xl font-bold text-ok">{o.confirmacoesNormalizada}</p><p className="text-xs">Normalizado</p></div>
             </div>
-            {session && (
+            {session && o.status !== "expirada" && (
               <div className="mt-4 space-y-2">
                 <Button className="w-full" disabled={voted} onClick={() => void vote("ativa")}><Waves /> Confirmar que ainda existe</Button>
                 <Button variant="ok" className="w-full" disabled={voted} onClick={() => void vote("normalizada")}><CheckCircle2 /> Informar que foi normalizado</Button>
                 {voted && <p className="text-center text-xs text-muted-foreground">Você já confirmou este relato.</p>}
               </div>
+            )}
+            {o.status === "expirada" && (
+              <p className="mt-4 text-center text-sm text-muted-foreground">
+                O prazo deste relato terminou. Ele não aparece mais no mapa e não aceita novas confirmações.
+              </p>
             )}
           </Panel>
         </aside>

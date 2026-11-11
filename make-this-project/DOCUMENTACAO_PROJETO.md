@@ -208,32 +208,24 @@ A política `on delete cascade` assegura que, ao excluir uma ocorrência, as con
 
 ## 9. Segurança e Políticas de Acesso
 
-O código define políticas de Row Level Security (RLS) para as tabelas de ocorrências e confirmações. O esquema atual habilita leitura e inserção públicas em ambas as tabelas, conforme evidenciado nas políticas SQL.
+O código define políticas de Row Level Security (RLS) para as tabelas de ocorrências e confirmações. A leitura é pública; a inserção de ocorrências continua permitida pelo esquema, enquanto confirmações exigem usuário autenticado e ficam bloqueadas após a janela de vida do relato.
 
 As políticas incluem:
 
 - leitura pública de ocorrências;
 - inserção pública de ocorrências;
 - leitura pública de confirmações;
-- inserção pública de confirmações.
+- inserção autenticada de confirmações somente enquanto o relato estiver dentro do prazo.
 
-Essa abordagem é útil para prototipagem e demonstração, mas em um cenário de produção com dados sensíveis ou alto volume de uso, seria recomendável restringir o acesso por autenticação, além de aplicar regras de validação e moderação para reduzir abuso, duplicação e registros fraudulentos.
+As regras de expiração são impostas tanto na interface quanto na política de inserção de confirmações do banco.
 
 ---
 
 ## 10. Lógica de Negócio e Cálculo de Status
 
-A lógica de status do sistema está encapsulada em `src/lib/lifecycle.ts` e baseia-se em duas variáveis centrais:
+A lógica de status do sistema está encapsulada em `src/lib/lifecycle.ts`. Confirmações de “ainda existe” mantêm o relato ativo por 6 horas para gravidade baixa (atenção), 12 horas para moderada e 24 horas para alta (grave). Após esse prazo, o relato fica normalizado por 12 horas e, então, expira e deixa de aparecer no mapa. Uma confirmação explícita de normalização também permanece visível por 12 horas antes de expirar. Relatos sem confirmação expiram 12 horas após a criação.
 
-- `expiryHours`: período máximo de validade sem nova confirmação;
-- `normalizeThreshold`: limiar mínimo para considerar uma ocorrência como normalizada.
-
-A função `computeStatus` analisa:
-
-- número de confirmações do tipo `ativa`;
-- número de confirmações do tipo `normalizada`;
-- tempo decorrido desde a última atividade;
-- janela temporal definida para expiração do relato.
+A função `computeStatus` usa a confirmação mais recente e o horário da ocorrência para calcular `pendente`, `ativa`, `normalizada` ou `expirada`. A transição é recalculada quando chega o horário previsto e quando o usuário retorna à aba. O banco também deve bloquear novas confirmações após o encerramento: aplique `supabase/migrations/20261111010000_confirmation_lifecycle.sql` no SQL Editor do Supabase. O `schema.sql` contém a mesma política para novas instalações.
 
 Os estados possíveis são:
 
@@ -242,9 +234,9 @@ Os estados possíveis são:
 - `normalizada`;
 - `expirada`.
 
-A regra principal do sistema é: uma ocorrência é classificada como normalizada apenas quando a quantidade de confirmações de normalização excede a quantidade de confirmações de continuidade do problema. Enquanto a comunidade continuar indicando que o problema ainda existe, o estado permanece ativo, preservando a cor e o sinal visual do mapa. A expiração continua sendo calculada pelo tempo sem novas confirmações, independentemente da normalização.
+A ocorrência usa a confirmação mais recente para definir seu estado. Uma nova confirmação de “ainda existe” durante a janela normalizada reativa o relato e reinicia o prazo conforme a gravidade.
 
-Além disso, a lógica visual do mapa foi implementada para refletir diretamente esse status. Em um cenário de normalização, o ponto assume a coloração verde; em um cenário de continuidade, permanece com a coloração do alerta, preservando a representação do risco real.
+No mapa, os relatos normalizados aparecem em verde durante as 12 horas de visibilidade restantes. Os expirados são removidos do mapa, e a tela de detalhes desativa confirmações.
 
 ---
 

@@ -3,7 +3,7 @@
  * Uses Supabase when configured; otherwise falls back to the local demo store.
  */
 import { useEffect, useState } from "react";
-import { computeStatus } from "@/lib/lifecycle";
+import { computeStatus, getNextStatusChangeAt } from "@/lib/lifecycle";
 import { supabase } from "@/lib/supabase";
 import type { Confirmation, ConfirmationKind, Occurrence, OccurrenceStatus } from "@/types/occurrence";
 
@@ -13,6 +13,7 @@ export interface OccurrenceView extends Occurrence {
   status: OccurrenceStatus;
   confirmacoesAtiva: number;
   confirmacoesNormalizada: number;
+  nextStatusChangeAt: number | null;
 }
 
 interface Store {
@@ -81,6 +82,17 @@ function toView(s: Store, o: Occurrence): OccurrenceView {
     status: computeStatus(o, cs),
     confirmacoesAtiva: cs.filter((c) => c.kind === "ativa").length,
     confirmacoesNormalizada: cs.filter((c) => c.kind === "normalizada").length,
+    nextStatusChangeAt: getNextStatusChangeAt(o, cs),
+  };
+}
+
+function toSupabaseView(occurrence: Occurrence, confirmations: Confirmation[]): OccurrenceView {
+  return {
+    ...occurrence,
+    status: computeStatus(occurrence, confirmations),
+    confirmacoesAtiva: confirmations.filter((c) => c.kind === "ativa").length,
+    confirmacoesNormalizada: confirmations.filter((c) => c.kind === "normalizada").length,
+    nextStatusChangeAt: getNextStatusChangeAt(occurrence, confirmations),
   };
 }
 
@@ -128,12 +140,7 @@ async function fetchFromSupabase(): Promise<OccurrenceView[]> {
     .map((row) => {
       const occurrence = mapOccurrenceRow(row);
       const cs = confirmations.filter((c) => c.occurrenceId === occurrence.id);
-      return {
-        ...occurrence,
-        status: computeStatus(occurrence, cs),
-        confirmacoesAtiva: cs.filter((c) => c.kind === "ativa").length,
-        confirmacoesNormalizada: cs.filter((c) => c.kind === "normalizada").length,
-      };
+      return toSupabaseView(occurrence, cs);
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
@@ -222,7 +229,21 @@ export async function confirmOccurrence(id: string, kind: ConfirmationKind) {
   if (hasVoted(id)) throw new Error("Você já enviou uma confirmação para este relato.");
 
   if (supabase) {
-    const { error } = await supabase.from("confirmations").insert([{ occurrence_id: id, kind, created_at: new Date().toISOString() }]);
+    const [occurrenceResult, confirmationsResult] = await Promise.all([
+      supabase.from("occurrences").select("*").eq("id", id).maybeSingle(),
+      supabase.from("confirmations").select("*").eq("occurrence_id", id),
+    ]);
+    if (occurrenceResult.error) throw new Error(occurrenceResult.error.message);
+    if (confirmationsResult.error) throw new Error(confirmationsResult.error.message);
+    if (!occurrenceResult.data) throw new Error("Este relato não foi encontrado.");
+
+    const occurrence = mapOccurrenceRow(occurrenceResult.data);
+    const confirmations = (confirmationsResult.data ?? []).map(mapConfirmationRow);
+    if (computeStatus(occurrence, confirmations) === "expirada") {
+      throw new Error("O prazo deste relato terminou. Não é mais possível alterá-lo.");
+    }
+
+    const { error } = await supabase.from("confirmations").insert([{ occurrence_id: id, kind }]);
     if (error) throw new Error(error.message);
   } else {
     throw new Error("Você precisa estar logado para registrar ou confirmar um incidente.");
@@ -237,24 +258,45 @@ export function useOccurrences(): OccurrenceView[] | null {
   const [data, setData] = useState<OccurrenceView[] | null>(null);
   useEffect(() => {
     let active = true;
+    let transitionTimer: ReturnType<typeof setTimeout> | undefined;
 
     async function update() {
       try {
         const next = supabase ? await fetchFromSupabase() : listOccurrences();
-        if (active) setData(next);
+        if (!active) return;
+        setData(next);
+
+        if (transitionTimer) clearTimeout(transitionTimer);
+        const nextTransitionAt = next.reduce<number | null>((soonest, occurrence) => {
+          const at = occurrence.nextStatusChangeAt;
+          return at !== null && (soonest === null || at < soonest) ? at : soonest;
+        }, null);
+        if (nextTransitionAt !== null) {
+          transitionTimer = setTimeout(
+            () => void update(),
+            Math.min(Math.max(0, nextTransitionAt - Date.now()), 2_147_000_000),
+          );
+        }
       } catch {
         if (active) setData(listOccurrences());
       }
     }
 
-    update();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void update();
+    };
+
+    void update();
+    document.addEventListener("visibilitychange", refreshWhenVisible);
     if (!supabase) {
       const t = setTimeout(() => {
-        if (active) setData(listOccurrences());
+        if (active) void update();
       }, 250);
       listeners.add(update as never);
       return () => {
         active = false;
+        if (transitionTimer) clearTimeout(transitionTimer);
+        document.removeEventListener("visibilitychange", refreshWhenVisible);
         clearTimeout(t);
         listeners.delete(update as never);
       };
@@ -262,6 +304,8 @@ export function useOccurrences(): OccurrenceView[] | null {
 
     return () => {
       active = false;
+      if (transitionTimer) clearTimeout(transitionTimer);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, []);
   return data;

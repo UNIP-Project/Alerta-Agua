@@ -74,7 +74,8 @@ export function MapView({ occurrences = [], center = DEFAULT_CENTER, zoom = 12, 
     if (!L || !layer.current) return;
     layer.current.clearLayers();
     for (const o of occurrences) {
-      const faded = o.status === "normalizada" || o.status === "expirada";
+      if (o.status === "expirada") continue;
+      const faded = o.status === "normalizada";
       const color = o.status === "normalizada" ? cssColor("--ok") : cssColor(severityCssVar(o.gravidade));
       L.circleMarker([o.latitude, o.longitude], {
         radius: 11,

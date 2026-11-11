@@ -1,35 +1,81 @@
-import type { Confirmation, Occurrence, OccurrenceStatus } from "@/types/occurrence";
+import type { Confirmation, Occurrence, OccurrenceStatus, Severity } from "@/types/occurrence";
 
-/** Configurable lifecycle settings. */
+const HOUR_MS = 3600_000;
+
 export const LIFECYCLE = {
-  /** Hours without new community confirmations before a report expires. */
-  expiryHours: 12,
-  /** A single normalization vote is enough to mark the report as resolved visually. */
-  normalizeThreshold: 1,
+  pendingExpiryHours: 12,
+  normalizedVisibilityHours: 12,
+  activeExpiryHours: {
+    baixo: 6,
+    moderado: 12,
+    alto: 24,
+  } satisfies Record<Severity, number>,
 };
 
-/**
- * Computes the status from community confirmations and elapsed time.
- * A new report is never "ativa" by itself — it needs at least one confirmation.
- * "expirada" only means the data is stale, not that the area is safe.
- */
-export function computeStatus(
-  occ: Pick<Occurrence, "createdAt">,
-  confirmations: Pick<Confirmation, "kind" | "createdAt">[],
+type LifecycleOccurrence = Pick<Occurrence, "createdAt" | "gravidade">;
+type LifecycleConfirmation = Pick<Confirmation, "kind" | "createdAt">;
+
+function latestConfirmation(confirmations: LifecycleConfirmation[]): LifecycleConfirmation | undefined {
+  return confirmations.reduce<LifecycleConfirmation | undefined>((latest, confirmation) => {
+    if (!latest || new Date(confirmation.createdAt).getTime() >= new Date(latest.createdAt).getTime()) {
+      return confirmation;
+    }
+    return latest;
+  }, undefined);
+}
+
+export function getNextStatusChangeAt(
+  occurrence: LifecycleOccurrence,
+  confirmations: LifecycleConfirmation[],
   now: Date = new Date(),
-  cfg = LIFECYCLE,
+): number | null {
+  const latest = latestConfirmation(confirmations);
+
+  if (!latest) {
+    const expiresAt = new Date(occurrence.createdAt).getTime() + LIFECYCLE.pendingExpiryHours * HOUR_MS;
+    return expiresAt > now.getTime() ? expiresAt : null;
+  }
+
+  const confirmationAt = new Date(latest.createdAt).getTime();
+  if (latest.kind === "normalizada") {
+    const expiresAt = confirmationAt + LIFECYCLE.normalizedVisibilityHours * HOUR_MS;
+    return expiresAt > now.getTime() ? expiresAt : null;
+  }
+
+  const normalizesAt =
+    confirmationAt + LIFECYCLE.activeExpiryHours[occurrence.gravidade] * HOUR_MS;
+  if (normalizesAt > now.getTime()) return normalizesAt;
+
+  const expiresAt = normalizesAt + LIFECYCLE.normalizedVisibilityHours * HOUR_MS;
+  return expiresAt > now.getTime() ? expiresAt : null;
+}
+
+export function computeStatus(
+  occurrence: LifecycleOccurrence,
+  confirmations: LifecycleConfirmation[],
+  now: Date = new Date(),
 ): OccurrenceStatus {
-  const active = confirmations.filter((c) => c.kind === "ativa").length;
-  const normal = confirmations.filter((c) => c.kind === "normalizada").length;
+  const nowMs = now.getTime();
+  const latest = latestConfirmation(confirmations);
 
-  // A single normalization confirmation should keep the marker green, matching the
-  // user's response and avoiding the map oscillating back to the alarm state.
-  if (normal >= cfg.normalizeThreshold) return "normalizada";
+  if (!latest) {
+    const pendingExpiresAt =
+      new Date(occurrence.createdAt).getTime() + LIFECYCLE.pendingExpiryHours * HOUR_MS;
+    return nowMs >= pendingExpiresAt ? "expirada" : "pendente";
+  }
 
-  const lastActivity = Math.max(
-    new Date(occ.createdAt).getTime(),
-    ...confirmations.map((c) => new Date(c.createdAt).getTime()),
-  );
-  if (now.getTime() - lastActivity > cfg.expiryHours * 3600_000) return "expirada";
-  return active >= 1 ? "ativa" : "pendente";
+  const confirmationAt = new Date(latest.createdAt).getTime();
+  if (latest.kind === "normalizada") {
+    return nowMs >= confirmationAt + LIFECYCLE.normalizedVisibilityHours * HOUR_MS
+      ? "expirada"
+      : "normalizada";
+  }
+
+  const normalizesAt =
+    confirmationAt + LIFECYCLE.activeExpiryHours[occurrence.gravidade] * HOUR_MS;
+  if (nowMs < normalizesAt) return "ativa";
+
+  return nowMs >= normalizesAt + LIFECYCLE.normalizedVisibilityHours * HOUR_MS
+    ? "expirada"
+    : "normalizada";
 }

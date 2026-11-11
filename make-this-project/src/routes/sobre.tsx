@@ -19,7 +19,8 @@ export const Route = createFileRoute("/sobre")({
           <li>Todo relato começa como <em>pendente de confirmação</em>.</li>
           <li>Quando outras pessoas confirmam, ele passa a <em>ativo</em>.</li>
           <li>Com confirmações de que a situação acabou, vira <em>normalizado</em>.</li>
-          <li>Sem novas confirmações por um período, é marcado como <em>expirado</em> — o que não garante que o local esteja seguro.</li>
+          <li>Confirmações de “ainda existe” duram 6 horas para atenção, 12 horas para moderado e 24 horas para grave; depois, o relato fica normalizado por 12 horas.</li>
+          <li>Após esse período normalizado, o relato expira, sai do mapa e não aceita novas confirmações — isso não garante que o local esteja seguro.</li>
         </ul>
         <p className="text-sm text-muted-foreground">O Alerta Água não é um serviço oficial de emergência e não substitui os alertas da Defesa Civil e demais autoridades.</p>
       </Panel>
