@@ -1,4 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Capacitor } from "@capacitor/core";
+import { Geolocation } from "@capacitor/geolocation";
 import { ImagePlus, Loader2, LocateFixed, X } from "lucide-react";
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -95,44 +97,69 @@ function Registrar() {
   }
 
   async function useMyLocation() {
-    if (!("geolocation" in navigator)) return toast.error("Seu dispositivo não oferece localização.");
-    if (!window.confirm("O Alerta Água quer usar sua localização atual para marcar o relato. Permitir?")) return;
-
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (p) => {
-        const lat = p.coords.latitude;
-        const lon = p.coords.longitude;
-        setPos([lat, lon]);
+    try {
+      let coordinates: { latitude: number; longitude: number };
 
-        try {
-          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&addressdetails=1&accept-language=pt-BR`);
-          if (!response.ok) throw new Error("reverse geocode failed");
-          const data = await response.json();
-          const display = typeof data?.display_name === "string" ? data.display_name : "";
-          const address = data?.address ?? {};
-          const city = address.city || address.town || address.municipality || address.village || address.county || "";
-          const road = address.road || address.pedestrian || address.street || "";
-          const formatted = road ? `${road}, ${city || "Localização atual"}` : (display || "Localização atual");
-
-          setF((prev) => ({
-            ...prev,
-            cidade: city || prev.cidade,
-            endereco: formatted,
-          }));
-        } catch {
-          setF((prev) => ({ ...prev, endereco: prev.endereco || "Localização atual" }));
-        } finally {
-          setLocating(false);
-          setErrors((prev) => ({ ...prev, pos: "" }));
+      if (Capacitor.isNativePlatform()) {
+        let permission = await Geolocation.checkPermissions();
+        if (permission.location !== "granted" && permission.coarseLocation !== "granted") {
+          permission = await Geolocation.requestPermissions({ permissions: ["location"] });
         }
-      },
-      () => {
-        toast.error("Não foi possível obter sua localização. Selecione no mapa.");
-        setLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
+
+        if (permission.location !== "granted" && permission.coarseLocation !== "granted") {
+          toast.error("Permita o acesso à localização para marcar o relato.");
+          return;
+        }
+
+        const position = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 15000,
+        });
+        coordinates = position.coords;
+      } else {
+        if (!navigator.geolocation) {
+          toast.error("Este navegador não oferece acesso à localização.");
+          return;
+        }
+
+        coordinates = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            ({ coords }) => resolve(coords),
+            reject,
+            { enableHighAccuracy: true, timeout: 15000 },
+          );
+        });
+      }
+
+      const { latitude: lat, longitude: lon } = coordinates;
+      setPos([lat, lon]);
+
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&addressdetails=1&accept-language=pt-BR`);
+        if (!response.ok) throw new Error("reverse geocode failed");
+        const data = await response.json();
+        const display = typeof data?.display_name === "string" ? data.display_name : "";
+        const address = data?.address ?? {};
+        const city = address.city || address.town || address.municipality || address.village || address.county || "";
+        const road = address.road || address.pedestrian || address.street || "";
+        const formatted = road ? `${road}, ${city || "Localização atual"}` : (display || "Localização atual");
+
+        setF((prev) => ({
+          ...prev,
+          cidade: city || prev.cidade,
+          endereco: formatted,
+        }));
+      } catch {
+        setF((prev) => ({ ...prev, endereco: prev.endereco || "Localização atual" }));
+      }
+
+      setErrors((prev) => ({ ...prev, pos: "" }));
+    } catch {
+      toast.error("Não foi possível obter sua localização. Ative a Localização do celular e permita o acesso ao Alerta Água.");
+    } finally {
+      setLocating(false);
+    }
   }
 
   async function submit(e: FormEvent) {
