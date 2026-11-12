@@ -3,9 +3,6 @@ name: Android APK
 on:
   workflow_dispatch:
   push:
-    paths:
-      - "make-this-project/**"
-      - ".github/workflows/android.yml"
 
 permissions:
   contents: read
@@ -17,9 +14,6 @@ jobs:
       JAVA_HOME: /usr/lib/jvm/temurin-21-jdk-amd64
       ANDROID_HOME: ${{ github.workspace }}/android-sdk
       ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
-    defaults:
-      run:
-        working-directory: make-this-project
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -67,7 +61,7 @@ jobs:
           npx cap sync android
 
       - name: Build debug APK
-        working-directory: make-this-project/android
+        working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
@@ -76,6 +70,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: alerta-agua-apk
-          path: ${{ github.workspace }}/make-this-project/android/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ github.workspace }}/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
