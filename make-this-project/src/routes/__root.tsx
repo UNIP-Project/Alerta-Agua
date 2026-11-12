@@ -13,6 +13,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { SiteHeader, SiteFooter } from "@/components/layout/SiteHeader";
 import { AuthGate } from "@/components/auth/AuthGate";
+import { NativeRecoveryLink } from "@/components/auth/NativeRecoveryLink";
 import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 import { reportAPSError } from "../lib/aps-error-reporting";
@@ -124,6 +125,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <NativeRecoveryLink />
       <AuthGate key={pathname} pathname={pathname}>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <div className="flex min-h-screen flex-col">

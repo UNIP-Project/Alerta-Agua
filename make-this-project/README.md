@@ -103,6 +103,27 @@ O arquivo será criado em `android/app/build/outputs/apk/debug/app-debug.apk`.
 Para baixar uma versão pronta, acesse a execução **Android APK** na aba **Actions**
 do GitHub e baixe o artefato `alerta-agua-apk`.
 
+### Recuperação de senha no APK
+
+O APK usa `alertaagua://auth/redefinir-senha` como endereço de retorno. No painel do
+Supabase, em **Authentication > URL Configuration > Redirect URLs**, adicione esse
+endereço exato. Mantenha também a URL de desenvolvimento web se usar a recuperação
+de senha no navegador. Se o modelo de e-mail de recuperação foi personalizado,
+confira se ele usa o link de confirmação do Supabase (`{{ .ConfirmationURL }}`)
+e respeita o destino de `redirectTo`.
+
+Depois de gerar e instalar o APK, solicite a recuperação de senha no próprio app
+e abra o e-mail no mesmo aparelho. O Android abre o aplicativo, que valida o
+retorno do Supabase antes de mostrar o formulário de nova senha. Para verificar
+somente o registro do link, com o aparelho conectado por ADB, use:
+
+```bash
+adb shell am start -a android.intent.action.VIEW -d "alertaagua://auth/redefinir-senha"
+```
+
+Esse comando não contém os tokens do Supabase; por isso abre o app, mas mostra
+uma mensagem de link inválido. O teste completo exige o e-mail real de recuperação.
+
 ### Testes
 
 ```bash

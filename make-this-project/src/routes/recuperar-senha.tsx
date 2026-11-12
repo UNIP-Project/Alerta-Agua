@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Capacitor } from "@capacitor/core";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { PageShell, Panel } from "@/components/layout/PageShell";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
+import { getRecoveryRedirectUrl } from "@/lib/recovery-link";
 
 export const Route = createFileRoute("/recuperar-senha")({
   head: () => ({
@@ -40,7 +42,7 @@ function Page() {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/redefinir-senha`,
+        redirectTo: getRecoveryRedirectUrl(Capacitor.isNativePlatform(), window.location.origin),
       });
 
       if (error) throw error;
